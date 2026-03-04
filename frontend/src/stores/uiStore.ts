@@ -27,7 +27,7 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   activeLayers: DEFAULT_LAYERS,
   shaderMode: "none",
   sidebarOpen: true,
-  splashComplete: false,
+  splashComplete: true,
 
   toggleLayer: (layerId) =>
     set((state) => {

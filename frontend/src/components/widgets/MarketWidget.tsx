@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { createChart, ColorType, type IChartApi } from 'lightweight-charts';
+import { createChart, ColorType, type IChartApi, type ISeriesApi } from 'lightweight-charts';
 import WidgetShell from './WidgetShell';
 import { useDataStore } from '../../stores/dataStore';
 
@@ -8,6 +8,7 @@ const MarketWidget: React.FC = () => {
   const market = useDataStore((s) => s.market);
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -40,17 +41,10 @@ const MarketWidget: React.FC = () => {
       lineWidth: 2,
     });
 
-    if (market?.history) {
-      areaSeries.setData(
-        market.history.map((h) => ({
-          time: h.time as any,
-          value: h.close,
-        })),
-      );
-    }
-
     chartInstanceRef.current = chart;
+    seriesRef.current = areaSeries;
 
+    const el = chartRef.current;
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         chart.applyOptions({
@@ -59,31 +53,38 @@ const MarketWidget: React.FC = () => {
         });
       }
     });
-    resizeObserver.observe(chartRef.current);
+    resizeObserver.observe(el);
 
     return () => {
       resizeObserver.disconnect();
       chart.remove();
       chartInstanceRef.current = null;
+      seriesRef.current = null;
     };
   }, []);
 
+  // Update chart data when market changes
   useEffect(() => {
-    if (!chartInstanceRef.current || !market?.history) return;
-    // Data updates are handled by the chart instance internally
+    if (!seriesRef.current || !market?.history?.length) return;
+    seriesRef.current.setData(
+      market.history.map((h) => ({
+        time: h.time as any,
+        value: h.close,
+      })),
+    );
   }, [market?.history]);
 
-  const isUp = market ? market.change >= 0 : true;
+  const isUp = market ? (market.change ?? 0) >= 0 : true;
 
   return (
     <WidgetShell title="IBOVESPA" icon={<TrendingUp size={14} />}>
       {!market ? (
-        <p className="text-zinc-500 text-xs text-center py-4 font-mono">No market data</p>
+        <p className="text-zinc-500 text-xs text-center py-4 font-mono">Awaiting data...</p>
       ) : (
         <div className="flex flex-col h-full">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-lg font-mono font-bold text-zinc-100">
-              {market.price.toLocaleString('pt-BR')}
+              {market.price != null ? market.price.toLocaleString('pt-BR') : '—'}
             </span>
             <span
               className={`flex items-center gap-0.5 text-xs font-mono ${
@@ -92,7 +93,7 @@ const MarketWidget: React.FC = () => {
             >
               {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
               {isUp ? '+' : ''}
-              {market.change.toFixed(2)} ({market.changePercent.toFixed(2)}%)
+              {(market.change ?? 0).toFixed(2)} ({(market.changePercent ?? 0).toFixed(2)}%)
             </span>
           </div>
           <div ref={chartRef} className="flex-1 min-h-[120px]" />

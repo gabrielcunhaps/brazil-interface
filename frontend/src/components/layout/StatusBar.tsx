@@ -30,7 +30,7 @@ function StatusBar() {
         : "shadow-[0_0_6px_rgba(239,68,68,0.6)]";
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 h-8 bg-zinc-900 border-t border-zinc-800 z-50 flex items-center justify-between px-4 font-mono text-xs text-zinc-500">
+    <footer className="fixed bottom-0 left-0 right-0 h-8 bg-black border-t border-emerald-500/20 z-50 flex items-center justify-between px-4 font-mono text-xs text-zinc-500">
       {/* Left: Connection status */}
       <div className="flex items-center gap-2">
         <div className={`w-2 h-2 rounded-full ${statusColor} ${statusGlow}`} />

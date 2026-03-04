@@ -149,3 +149,18 @@
 .react-grid-item > .react-resizable-handle::after {
   border-color: rgba(16, 185, 129, 0.3) !important;
 }
+
+/* Override all panel backgrounds to pure black */
+.react-grid-layout {
+  background: transparent !important;
+}
+
+.react-grid-item {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border: 1px solid rgba(16, 185, 129, 0.15) !important;
+  border-radius: 0.5rem;
+}
+
+.react-grid-item > div {
+  height: 100%;
+}

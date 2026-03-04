@@ -51,14 +51,14 @@ function Sidebar() {
 
   return (
     <aside
-      className={`relative flex-shrink-0 h-full bg-zinc-900/95 border-r border-zinc-800 transition-all duration-300 overflow-hidden ${
+      className={`relative flex-shrink-0 h-full bg-black/95 border-r border-emerald-500/20 transition-all duration-300 overflow-hidden ${
         sidebarOpen ? "w-64" : "w-0"
       }`}
     >
       {/* Toggle button */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-6 top-3 z-10 w-6 h-8 bg-zinc-800 border border-zinc-700 border-l-0 rounded-r flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors"
+        className="absolute -right-6 top-3 z-10 w-6 h-8 bg-black border border-emerald-500/20 border-l-0 rounded-r flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors"
       >
         {sidebarOpen ? (
           <ChevronLeft className="w-3.5 h-3.5" />
@@ -119,7 +119,7 @@ function Sidebar() {
         ))}
 
         {/* Shader mode */}
-        <div className="pt-3 border-t border-zinc-800">
+        <div className="pt-3 border-t border-emerald-500/20">
           <h3 className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-2 px-1">
             Shader Mode
           </h3>

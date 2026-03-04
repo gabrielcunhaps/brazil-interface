@@ -12,10 +12,11 @@ const ElectionsWidget: React.FC = () => {
     const first = elections[0];
     const data = elections
       .slice(0, 8)
+      .filter((e) => e.candidate && e.votes != null)
       .map((e) => ({
-        name: `${e.candidate} (${e.party})`,
-        votes: e.votes,
-        percentage: e.percentage,
+        name: `${e.candidate || 'Unknown'}${e.party ? ` (${e.party})` : ''}`,
+        votes: e.votes ?? 0,
+        percentage: e.percentage ?? 0,
       }))
       .sort((a, b) => b.votes - a.votes);
     return { year: first.year, position: first.position, chartData: data };
@@ -24,7 +25,7 @@ const ElectionsWidget: React.FC = () => {
   return (
     <WidgetShell title="Elections" icon={<Users size={14} />}>
       {elections.length === 0 ? (
-        <p className="text-zinc-500 text-xs text-center py-4 font-mono">No election data</p>
+        <p className="text-zinc-500 text-xs text-center py-4 font-mono">Awaiting data...</p>
       ) : (
         <div className="flex flex-col h-full">
           <div className="flex items-center gap-2 mb-2">

@@ -1,26 +1,116 @@
-import { useRef, useEffect, memo } from "react";
-import {
-  Viewer,
-  Globe as ResiumGlobe,
-  Scene,
-  CameraFlyTo,
-} from "resium";
-import * as Cesium from "cesium";
-import { useGlobeRef } from "@/hooks/useGlobeRef";
-import FlightLayer from "./FlightLayer";
-import EarthquakeLayer from "./EarthquakeLayer";
-import SatelliteLayer from "./SatelliteLayer";
-import FireLayer from "./FireLayer";
-import DeforestationLayer from "./DeforestationLayer";
-import WeatherLayer from "./WeatherLayer";
+import { memo, Component, type ReactNode, useState, useEffect } from "react";
+import { Globe } from "lucide-react";
 
-Cesium.Ion.defaultAccessToken = "";
+// Error boundary to catch Cesium/Resium initialization failures
+class GlobeErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-const BRAZIL_CENTER = Cesium.Cartesian3.fromDegrees(-51.9, -14.2, 5_000_000);
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
 
-function GlobeWidget() {
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+function GlobeFallback() {
+  return (
+    <div className="w-full h-full bg-black flex items-center justify-center">
+      <div className="text-emerald-500/50 font-mono text-sm text-center">
+        <Globe className="w-12 h-12 mx-auto mb-2 opacity-30" />
+        <p>3D GLOBE</p>
+        <p className="text-xs text-emerald-500/30">Requires Cesium Ion Token</p>
+      </div>
+    </div>
+  );
+}
+
+function CesiumGlobe() {
+  const [loaded, setLoaded] = useState(false);
+  const [mod, setMod] = useState<any>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCesium() {
+      try {
+        const [cesiumMod, resiumMod, hookMod, ...layerMods] = await Promise.all([
+          import("cesium"),
+          import("resium"),
+          import("@/hooks/useGlobeRef"),
+          import("./FlightLayer"),
+          import("./EarthquakeLayer"),
+          import("./SatelliteLayer"),
+          import("./FireLayer"),
+          import("./DeforestationLayer"),
+          import("./WeatherLayer"),
+        ]);
+
+        if (cancelled) return;
+
+        cesiumMod.Ion.defaultAccessToken = "";
+
+        setMod({
+          Cesium: cesiumMod,
+          Viewer: resiumMod.Viewer,
+          ResiumGlobe: resiumMod.Globe,
+          Scene: resiumMod.Scene,
+          CameraFlyTo: resiumMod.CameraFlyTo,
+          useGlobeRef: hookMod.useGlobeRef,
+          FlightLayer: layerMods[0].default,
+          EarthquakeLayer: layerMods[1].default,
+          SatelliteLayer: layerMods[2].default,
+          FireLayer: layerMods[3].default,
+          DeforestationLayer: layerMods[4].default,
+          WeatherLayer: layerMods[5].default,
+        });
+        setLoaded(true);
+      } catch {
+        // Cesium not available — stay unloaded, fallback will show
+      }
+    }
+
+    loadCesium();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!loaded || !mod) {
+    return <GlobeFallback />;
+  }
+
+  return <CesiumViewer mod={mod} />;
+}
+
+function CesiumViewer({ mod }: { mod: any }) {
+  const {
+    Cesium,
+    Viewer,
+    ResiumGlobe,
+    Scene,
+    CameraFlyTo,
+    useGlobeRef,
+    FlightLayer,
+    EarthquakeLayer,
+    SatelliteLayer,
+    FireLayer,
+    DeforestationLayer,
+    WeatherLayer,
+  } = mod;
+
   const { viewerRef, setViewer } = useGlobeRef();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const BRAZIL_CENTER = Cesium.Cartesian3.fromDegrees(-51.9, -14.2, 5_000_000);
 
   useEffect(() => {
     return () => {
@@ -31,11 +121,11 @@ function GlobeWidget() {
   }, [viewerRef]);
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div className="w-full h-full relative">
       <Viewer
         full={false}
         style={{ width: "100%", height: "100%" }}
-        ref={(e) => {
+        ref={(e: any) => {
           if (e?.cesiumElement) {
             setViewer(e.cesiumElement);
           }
@@ -70,6 +160,14 @@ function GlobeWidget() {
         <WeatherLayer />
       </Viewer>
     </div>
+  );
+}
+
+function GlobeWidget() {
+  return (
+    <GlobeErrorBoundary fallback={<GlobeFallback />}>
+      <CesiumGlobe />
+    </GlobeErrorBoundary>
   );
 }
 

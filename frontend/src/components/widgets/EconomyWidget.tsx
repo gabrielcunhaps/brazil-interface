@@ -57,25 +57,25 @@ const EconomyWidget: React.FC = () => {
   return (
     <WidgetShell title="Economy" icon={<DollarSign size={14} />}>
       {!economy ? (
-        <p className="text-zinc-500 text-xs text-center py-4 font-mono">No economic data</p>
+        <p className="text-zinc-500 text-xs text-center py-4 font-mono">Awaiting data...</p>
       ) : (
         <div className="grid grid-cols-3 gap-2">
           <MetricCard
             label="SELIC"
-            value={`${economy.selic.toFixed(2)}%`}
-            history={economy.selic_history}
+            value={economy.selic != null ? `${economy.selic.toFixed(2)}%` : '—'}
+            history={economy.selic_history ?? []}
             color="#34d399"
           />
           <MetricCard
             label="USD/BRL"
-            value={economy.usd_brl.toFixed(2)}
-            history={economy.usd_brl_history}
+            value={economy.usd_brl != null ? economy.usd_brl.toFixed(2) : '—'}
+            history={economy.usd_brl_history ?? []}
             color="#60a5fa"
           />
           <MetricCard
             label="IPCA"
-            value={`${economy.ipca.toFixed(2)}%`}
-            history={economy.ipca_history}
+            value={economy.ipca != null ? `${economy.ipca.toFixed(2)}%` : '—'}
+            history={economy.ipca_history ?? []}
             color="#f59e0b"
           />
         </div>

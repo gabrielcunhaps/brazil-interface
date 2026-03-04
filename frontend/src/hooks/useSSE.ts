@@ -28,24 +28,33 @@ export function useSSE() {
 
       // Map SSE event names to store update functions.
       // Backend payload shape: { source, event, count, timestamp, data: [...] }
-      const handlers: Record<string, (payload: { data: unknown }) => void> = {
-        flights: (p) => useDataStore.getState().updateFlights(p.data as never),
-        earthquakes: (p) => useDataStore.getState().updateEarthquakes(p.data as never),
-        satellites: (p) => useDataStore.getState().updateSatellites(p.data as never),
-        fires: (p) => useDataStore.getState().updateFires(p.data as never),
+      // Array data sources pass p.data directly; single-object sources unwrap from array.
+      const handlers: Record<string, (payload: any) => void> = {
+        flights: (p) => useDataStore.getState().updateFlights(p.data ?? []),
+        earthquakes: (p) => useDataStore.getState().updateEarthquakes(p.data ?? []),
+        satellites: (p) => useDataStore.getState().updateSatellites(p.data ?? []),
+        fires: (p) => useDataStore.getState().updateFires(p.data ?? []),
         fires_inpe: (p) => {
-          // Merge INPE fire data with existing fires
           const existing = useDataStore.getState().fires;
-          useDataStore.getState().updateFires([...existing, ...(p.data as never[])]);
+          useDataStore.getState().updateFires([...existing, ...(p.data ?? [])]);
         },
-        weather: (p) => useDataStore.getState().updateWeather(p.data as never),
-        economy: (p) => useDataStore.getState().updateEconomy(p.data as never),
-        market: (p) => useDataStore.getState().updateMarket(p.data as never),
-        deforestation: (p) => useDataStore.getState().updateDeforestation(p.data as never),
-        energy: (p) => useDataStore.getState().updateEnergy(p.data as never),
-        health: (p) => useDataStore.getState().updateHealth(p.data as never),
-        elections: (p) => useDataStore.getState().updateElections(p.data as never),
-        transparency: (p) => useDataStore.getState().updateTransparency(p.data as never),
+        weather: (p) => useDataStore.getState().updateWeather(p.data ?? []),
+        economy: (p) => {
+          const data = Array.isArray(p.data) ? p.data[0] : p.data;
+          if (data) useDataStore.getState().updateEconomy(data);
+        },
+        market: (p) => {
+          const data = Array.isArray(p.data) ? p.data[0] : p.data;
+          if (data) useDataStore.getState().updateMarket(data);
+        },
+        deforestation: (p) => useDataStore.getState().updateDeforestation(p.data ?? []),
+        energy: (p) => {
+          const data = Array.isArray(p.data) ? p.data[0] : p.data;
+          if (data) useDataStore.getState().updateEnergy(data);
+        },
+        health: (p) => useDataStore.getState().updateHealth(p.data ?? []),
+        elections: (p) => useDataStore.getState().updateElections(p.data ?? []),
+        transparency: (p) => useDataStore.getState().updateTransparency(p.data ?? []),
       };
 
       for (const [event, handler] of Object.entries(handlers)) {

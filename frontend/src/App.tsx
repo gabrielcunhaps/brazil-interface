@@ -16,7 +16,7 @@ function App() {
   const splashComplete = useUIStore((s) => s.splashComplete);
 
   return (
-    <div className="h-screen w-screen bg-zinc-950 text-zinc-100 overflow-hidden">
+    <div className="h-screen w-screen bg-black text-zinc-100 overflow-hidden">
       {!splashComplete && <SplashScreen />}
       <TopBar />
       <div className="flex h-[calc(100vh-5rem)] mt-12 mb-8">

@@ -13,10 +13,10 @@ function WidgetShell({ title, icon, children, className = "" }: WidgetShellProps
 
   return (
     <div
-      className={`h-full flex flex-col bg-zinc-900/90 border border-zinc-700 rounded overflow-hidden ${className}`}
+      className={`h-full flex flex-col bg-black/90 border border-emerald-500/20 rounded overflow-hidden ${className}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-700 border-t-2 border-t-emerald-500/50 bg-zinc-900 flex-shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-emerald-500/10 border-t-2 border-t-emerald-500/50 bg-black flex-shrink-0">
         <div className="flex items-center gap-2 drag-handle cursor-grab flex-1">
           {icon && <span className="text-emerald-400">{icon}</span>}
           <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">

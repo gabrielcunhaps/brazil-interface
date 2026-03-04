@@ -32,7 +32,7 @@ function TopBar() {
   const setShaderMode = useUIStore((s) => s.setShaderMode);
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-12 bg-zinc-900 border-b border-zinc-800 z-50 flex items-center justify-between px-4">
+    <header className="fixed top-0 left-0 right-0 h-12 bg-black border-b border-emerald-500/20 z-50 flex items-center justify-between px-4">
       {/* Left: Title */}
       <div className="flex items-center gap-2">
         <Scan className="w-5 h-5 text-emerald-400" />

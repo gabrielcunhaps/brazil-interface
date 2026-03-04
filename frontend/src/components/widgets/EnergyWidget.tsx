@@ -25,16 +25,17 @@ const EnergyWidget: React.FC = () => {
   return (
     <WidgetShell title="Energy Grid" icon={<Zap size={14} />}>
       {!energy ? (
-        <p className="text-zinc-500 text-xs text-center py-4 font-mono">No energy data</p>
+        <p className="text-zinc-500 text-xs text-center py-4 font-mono">Awaiting data...</p>
       ) : (
         <div className="flex flex-col h-full">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg font-mono font-bold text-zinc-100">
-              {energy.total_mw.toLocaleString()}
+              {energy.total_mw != null ? energy.total_mw.toLocaleString() : '—'}
             </span>
             <span className="text-[9px] font-mono text-zinc-500 uppercase">MW Total</span>
           </div>
 
+          {(energy.sources ?? []).length > 0 ? (
           <div className="flex gap-2 flex-1 min-h-0">
             <div className="w-1/2 min-h-[100px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -76,6 +77,9 @@ const EnergyWidget: React.FC = () => {
               ))}
             </div>
           </div>
+          ) : (
+            <p className="text-zinc-500 text-xs text-center py-4 font-mono">No source breakdown</p>
+          )}
         </div>
       )}
     </WidgetShell>
