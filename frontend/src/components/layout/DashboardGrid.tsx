@@ -1,39 +1,67 @@
-import { memo, useMemo, type ReactNode } from "react";
+import React, { memo, useMemo, lazy, Suspense } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import type { Layout } from "react-grid-layout";
 import { useDeck } from "@/hooks/useDeck";
-import GlobeWidget from "@/components/globe/GlobeWidget";
-import FlightsWidget from "@/components/widgets/FlightsWidget";
-import WeatherWidget from "@/components/widgets/WeatherWidget";
-import EconomyWidget from "@/components/widgets/EconomyWidget";
-import MarketWidget from "@/components/widgets/MarketWidget";
-import FiresWidget from "@/components/widgets/FiresWidget";
-import EarthquakeWidget from "@/components/widgets/EarthquakeWidget";
-import DeforestationWidget from "@/components/widgets/DeforestationWidget";
-import EnergyWidget from "@/components/widgets/EnergyWidget";
-import HealthWidget from "@/components/widgets/HealthWidget";
-import ElectionsWidget from "@/components/widgets/ElectionsWidget";
-import SatellitesWidget from "@/components/widgets/SatellitesWidget";
-import TransparencyWidget from "@/components/widgets/TransparencyWidget";
-import IntelFeed from "@/components/widgets/IntelFeed";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-const WIDGET_COMPONENTS: Record<string, ReactNode> = {
-  "intel-feed": <IntelFeed />,
-  flights: <FlightsWidget />,
-  satellites: <SatellitesWidget />,
-  fires: <FiresWidget />,
-  weather: <WeatherWidget />,
-  earthquakes: <EarthquakeWidget />,
-  economy: <EconomyWidget />,
-  market: <MarketWidget />,
-  deforestation: <DeforestationWidget />,
-  energy: <EnergyWidget />,
-  health: <HealthWidget />,
-  elections: <ElectionsWidget />,
-  transparency: <TransparencyWidget />,
+// Lazy-load all widgets to avoid import-time crashes
+const GlobeWidget = lazy(() => import("@/components/globe/GlobeWidget"));
+const FlightsWidget = lazy(() => import("@/components/widgets/FlightsWidget"));
+const WeatherWidget = lazy(() => import("@/components/widgets/WeatherWidget"));
+const EconomyWidget = lazy(() => import("@/components/widgets/EconomyWidget"));
+const MarketWidget = lazy(() => import("@/components/widgets/MarketWidget"));
+const FiresWidget = lazy(() => import("@/components/widgets/FiresWidget"));
+const EarthquakeWidget = lazy(() => import("@/components/widgets/EarthquakeWidget"));
+const DeforestationWidget = lazy(() => import("@/components/widgets/DeforestationWidget"));
+const EnergyWidget = lazy(() => import("@/components/widgets/EnergyWidget"));
+const HealthWidget = lazy(() => import("@/components/widgets/HealthWidget"));
+const ElectionsWidget = lazy(() => import("@/components/widgets/ElectionsWidget"));
+const SatellitesWidget = lazy(() => import("@/components/widgets/SatellitesWidget"));
+const TransparencyWidget = lazy(() => import("@/components/widgets/TransparencyWidget"));
+const IntelFeed = lazy(() => import("@/components/widgets/IntelFeed"));
+
+const WIDGET_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
+  "intel-feed": IntelFeed,
+  flights: FlightsWidget,
+  satellites: SatellitesWidget,
+  fires: FiresWidget,
+  weather: WeatherWidget,
+  earthquakes: EarthquakeWidget,
+  economy: EconomyWidget,
+  market: MarketWidget,
+  deforestation: DeforestationWidget,
+  energy: EnergyWidget,
+  health: HealthWidget,
+  elections: ElectionsWidget,
+  transparency: TransparencyWidget,
 };
+
+class WidgetErrorBoundary extends React.Component<
+  { name: string; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-full bg-zinc-900 text-red-400 font-mono text-xs p-2">
+          {this.props.name} failed to load
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const WidgetFallback = () => (
+  <div className="flex items-center justify-center h-full bg-zinc-900/50">
+    <span className="text-zinc-600 font-mono text-xs animate-pulse">LOADING...</span>
+  </div>
+);
 
 function DashboardGrid() {
   const { currentLayout, currentDeck, updateLayout } = useDeck();
@@ -69,17 +97,25 @@ function DashboardGrid() {
         if (widgetId === "globe") {
           return (
             <div key="globe" className="overflow-hidden rounded-lg border border-zinc-800">
-              <GlobeWidget />
+              <WidgetErrorBoundary name="Globe">
+                <Suspense fallback={<WidgetFallback />}>
+                  <GlobeWidget />
+                </Suspense>
+              </WidgetErrorBoundary>
             </div>
           );
         }
 
-        const widget = WIDGET_COMPONENTS[widgetId];
-        if (!widget) return null;
+        const WidgetComponent = WIDGET_MAP[widgetId];
+        if (!WidgetComponent) return null;
 
         return (
           <div key={widgetId}>
-            {widget}
+            <WidgetErrorBoundary name={widgetId}>
+              <Suspense fallback={<WidgetFallback />}>
+                <WidgetComponent />
+              </Suspense>
+            </WidgetErrorBoundary>
           </div>
         );
       })}

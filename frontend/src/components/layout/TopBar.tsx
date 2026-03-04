@@ -9,7 +9,6 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useDeck } from "@/hooks/useDeck";
-import { useSSE } from "@/hooks/useSSE";
 import { useUIStore } from "@/stores/uiStore";
 import type { DeckPreset, ShaderMode } from "@/types";
 
@@ -28,7 +27,7 @@ const SHADER_OPTIONS: { value: ShaderMode; label: string }[] = [
 
 function TopBar() {
   const { activePreset, presetList, switchPreset } = useDeck();
-  const connectionStatus = useSSE();
+  const connectionStatus = "connected"; // SSE managed by App
   const shaderMode = useUIStore((s) => s.shaderMode);
   const setShaderMode = useUIStore((s) => s.setShaderMode);
 
