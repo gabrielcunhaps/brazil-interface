@@ -1,4 +1,4 @@
-import { memo, useMemo, lazy, Suspense, type ReactNode } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import type { Layout } from "react-grid-layout";
 import { useDeck } from "@/hooks/useDeck";

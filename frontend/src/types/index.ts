@@ -84,7 +84,7 @@ export interface DeforestationAlert {
   lon: number;
   detected_date: string;
   biome: string;
-  geometry?: GeoJSON.Geometry;
+  geometry?: unknown;
 }
 
 export interface EnergyData {

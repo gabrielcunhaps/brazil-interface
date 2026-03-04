@@ -26,8 +26,6 @@ export function useSSE() {
         setStatus("connected");
       };
 
-      const store = useDataStore.getState;
-
       // Map SSE event names to store update functions.
       // Backend payload shape: { source, event, count, timestamp, data: [...] }
       const handlers: Record<string, (payload: { data: unknown }) => void> = {

@@ -1,4 +1,5 @@
 import { useRef, useCallback } from "react";
+import * as Cesium from "cesium";
 import type { Viewer } from "cesium";
 
 export function useGlobeRef() {
@@ -25,7 +26,6 @@ export function useGlobeRef() {
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    // Center on Brazil
     viewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(-52, -14, 6_000_000),
       duration: 2,

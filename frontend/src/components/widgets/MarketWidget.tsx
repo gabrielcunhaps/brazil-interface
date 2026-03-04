@@ -70,10 +70,7 @@ const MarketWidget: React.FC = () => {
 
   useEffect(() => {
     if (!chartInstanceRef.current || !market?.history) return;
-    const series = chartInstanceRef.current.timeScale();
-    // Re-apply data on updates
-    const allSeries = (chartInstanceRef.current as any)._private__seriesMap;
-    // Simpler approach: remove and re-create not needed if we keep a ref
+    // Data updates are handled by the chart instance internally
   }, [market?.history]);
 
   const isUp = market ? market.change >= 0 : true;
