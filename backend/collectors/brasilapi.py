@@ -8,7 +8,6 @@ from typing import Any
 
 from backend.collectors.base import BaseCollector
 from backend.config import REFRESH_INTERVALS
-from backend.models import EconomyIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -54,45 +53,34 @@ class BrasilAPICollector(BaseCollector):
 
         return results
 
-    async def normalize(self, raw: Any) -> list[EconomyIndicator]:
+    async def normalize(self, raw: Any) -> list[dict]:
+        """Return list of indicator dicts."""
         now = datetime.now(timezone.utc)
-        results: list[EconomyIndicator] = []
+        results: list[dict] = []
 
-        # Holidays count
         holidays = raw.get("holidays", [])
-        results.append(EconomyIndicator(
-            source=self.source_name,
-            fetched_at=now,
-            api_url=f"{BASE_URL}/feriados/v3/{now.year}",
-            indicator="HOLIDAYS",
-            value=float(len(holidays)),
-            date=str(now.year),
-            unit="count",
-        ))
+        results.append({
+            "indicator": "HOLIDAYS",
+            "value": float(len(holidays)),
+            "date": str(now.year),
+            "unit": "count",
+        })
 
-        # Banks count
         banks = raw.get("banks", [])
-        results.append(EconomyIndicator(
-            source=self.source_name,
-            fetched_at=now,
-            api_url=f"{BASE_URL}/banks/v1",
-            indicator="BANKS",
-            value=float(len(banks)),
-            date=str(now.year),
-            unit="count",
-        ))
+        results.append({
+            "indicator": "BANKS",
+            "value": float(len(banks)),
+            "date": str(now.year),
+            "unit": "count",
+        })
 
-        # Municipalities
         mun_count = raw.get("municipalities_count", 5570)
-        results.append(EconomyIndicator(
-            source=self.source_name,
-            fetched_at=now,
-            api_url=f"{BASE_URL}/ibge/municipios/v1/BR",
-            indicator="MUNICIPALITIES",
-            value=float(mun_count),
-            date=str(now.year),
-            unit="count",
-        ))
+        results.append({
+            "indicator": "MUNICIPALITIES",
+            "value": float(mun_count),
+            "date": str(now.year),
+            "unit": "count",
+        })
 
         return results
 
@@ -128,12 +116,7 @@ if __name__ == "__main__":
             data = await c.get_latest()
             print(f"Fetched {len(data)} BrasilAPI indicators")
             for ind in data:
-                print(f"  {ind.indicator}: {ind.value} {ind.unit}")
-
-            # Test CEP lookup
-            cep = await c.lookup_cep("01001000")
-            if cep:
-                print(f"\nCEP 01001-000: {cep.get('street')}, {cep.get('city')}/{cep.get('state')}")
+                print(f"  {ind['indicator']}: {ind['value']} {ind['unit']}")
         finally:
             await c.close()
 

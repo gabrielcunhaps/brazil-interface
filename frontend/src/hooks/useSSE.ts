@@ -35,8 +35,9 @@ export function useSSE() {
         satellites: (p) => useDataStore.getState().updateSatellites(p.data ?? []),
         fires: (p) => useDataStore.getState().updateFires(p.data ?? []),
         fires_inpe: (p) => {
+          const incoming = Array.isArray(p.data) ? p.data : [];
           const existing = useDataStore.getState().fires;
-          useDataStore.getState().updateFires([...existing, ...(p.data ?? [])]);
+          useDataStore.getState().updateFires([...existing, ...incoming]);
         },
         weather: (p) => useDataStore.getState().updateWeather(p.data ?? []),
         economy: (p) => {

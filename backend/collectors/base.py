@@ -42,7 +42,11 @@ class BaseCollector(ABC):
 
     @abstractmethod
     async def normalize(self, raw: Any) -> list:
-        """Transform raw API data into a list of Pydantic models."""
+        """Transform raw API data into a list of dicts or Pydantic models.
+
+        For singleton sources (economy, market, energy), return a single-element
+        list containing the aggregated dict. The stream handler unwraps it.
+        """
         ...
 
     async def get_latest(self) -> list:

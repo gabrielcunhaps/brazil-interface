@@ -1,6 +1,6 @@
-"""SSE streaming endpoint — pushes real-time data from all collectors to connected clients."""
-
 from __future__ import annotations
+
+"""SSE streaming endpoint — pushes real-time data from all collectors to connected clients."""
 
 import asyncio
 import json
@@ -37,14 +37,42 @@ SOURCE_EVENT_NAMES = {
     "brasilapi": "brasilapi",
 }
 
+# These sources send a SINGLE aggregated object (not a list).
+# The frontend store expects a single object for these, so we unwrap the
+# single-element list returned by the collector's normalize().
+SINGLETON_SOURCES = {"bcb", "bovespa", "ons"}
 
-def _serialize(data: list) -> str:
-    """Serialize a list of Pydantic models to JSON."""
 
-    return json.dumps(
-        [item.model_dump(mode="json") if hasattr(item, "model_dump") else item for item in data],
-        default=str,
-    )
+def _serialize_item(item: Any) -> Any:
+    """Serialize a single item — handles both Pydantic models and plain dicts."""
+    if hasattr(item, "model_dump"):
+        return item.model_dump(mode="json")
+    return item
+
+
+def _build_payload(source_name: str, event_name: str, data: list) -> str:
+    """Build the SSE JSON payload, handling singleton vs list sources."""
+    serialized = [_serialize_item(item) for item in data]
+
+    if source_name in SINGLETON_SOURCES and len(serialized) == 1:
+        # Unwrap: send the single object directly as `data`
+        payload = {
+            "source": source_name,
+            "event": event_name,
+            "count": 1,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": serialized[0],
+        }
+    else:
+        payload = {
+            "source": source_name,
+            "event": event_name,
+            "count": len(serialized),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": serialized,
+        }
+
+    return json.dumps(payload, default=str)
 
 
 async def _collector_loop(
@@ -58,17 +86,11 @@ async def _collector_loop(
     while not stop_event.is_set():
         try:
             data = await collector.get_latest()
-            payload = {
-                "source": collector.source_name,
-                "event": event_name,
-                "count": len(data),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "data": [
-                    item.model_dump(mode="json") if hasattr(item, "model_dump") else item
-                    for item in data
-                ],
-            }
-            await queue.put((event_name, json.dumps(payload, default=str)))
+            if data:  # Only send if we have data
+                payload_str = _build_payload(collector.source_name, event_name, data)
+                await queue.put((event_name, payload_str))
+            else:
+                logger.debug("[stream] %s returned empty data", collector.source_name)
         except Exception:
             logger.exception("[stream] Error in %s loop", collector.source_name)
 

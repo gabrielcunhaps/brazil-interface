@@ -3,12 +3,10 @@ from __future__ import annotations
 """IBGE collector — population, GDP, area data from the Brazilian stats agency."""
 
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from backend.collectors.base import BaseCollector
 from backend.config import REFRESH_INTERVALS
-from backend.models import EconomyIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +58,9 @@ class IBGECollector(BaseCollector):
                 }
         return results
 
-    async def normalize(self, raw: Any) -> list[EconomyIndicator]:
-        now = datetime.now(timezone.utc)
-        results: list[EconomyIndicator] = []
+    async def normalize(self, raw: Any) -> list[dict]:
+        """Return list of indicator dicts."""
+        results: list[dict] = []
         for name, info in raw.items():
             data_list = info["data"]
             if not isinstance(data_list, list) or not data_list:
@@ -78,15 +76,12 @@ class IBGECollector(BaseCollector):
                                 value = float(val)
                             except (ValueError, TypeError):
                                 continue
-                            results.append(EconomyIndicator(
-                                source=self.source_name,
-                                fetched_at=now,
-                                api_url=info["url"],
-                                indicator=info["indicator"],
-                                value=value,
-                                date=period,
-                                unit=info["unit"],
-                            ))
+                            results.append({
+                                "indicator": info["indicator"],
+                                "value": value,
+                                "date": period,
+                                "unit": info["unit"],
+                            })
             except Exception:
                 logger.warning("[ibge] Failed to parse %s", name)
         return results
@@ -94,6 +89,7 @@ class IBGECollector(BaseCollector):
 
 if __name__ == "__main__":
     import asyncio
+    import json
 
     async def _test() -> None:
         c = IBGECollector()
@@ -101,7 +97,7 @@ if __name__ == "__main__":
             data = await c.get_latest()
             print(f"Fetched {len(data)} IBGE indicators")
             for ind in data[:5]:
-                print(f"  {ind.indicator}: {ind.value} {ind.unit} ({ind.date})")
+                print(f"  {ind['indicator']}: {ind['value']} {ind['unit']} ({ind['date']})")
         finally:
             await c.close()
 

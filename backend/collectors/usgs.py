@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-"""USGS Earthquake collector — seismic events near Brazil."""
+"""USGS Earthquake collector — seismic events near Brazil.
+
+Returns dicts matching the frontend Earthquake shape:
+  {id, magnitude, lat, lon, depth, place, time}
+"""
 
 import logging
 from datetime import datetime, timezone
@@ -8,7 +12,6 @@ from typing import Any
 
 from backend.collectors.base import BaseCollector
 from backend.config import REFRESH_INTERVALS
-from backend.models import EarthquakeData
 
 logger = logging.getLogger(__name__)
 
@@ -25,38 +28,40 @@ class USGSCollector(BaseCollector):
 
     async def fetch(self) -> Any:
         session = await self._get_session()
-        async with session.get(API_URL) as resp:
-            resp.raise_for_status()
-            return await resp.json()
+        try:
+            async with session.get(API_URL) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+        except Exception as exc:
+            logger.warning("[usgs] Fetch failed: %s", exc)
+            return {"features": []}
 
-    async def normalize(self, raw: Any) -> list[EarthquakeData]:
+    async def normalize(self, raw: Any) -> list[dict]:
+        """Return list of dicts matching frontend Earthquake type."""
         features = raw.get("features") or []
-        now = datetime.now(timezone.utc)
-        results: list[EarthquakeData] = []
+        results: list[dict] = []
         for f in features:
             props = f.get("properties", {})
             coords = f.get("geometry", {}).get("coordinates", [0, 0, 0])
-            results.append(EarthquakeData(
-                source=self.source_name,
-                fetched_at=now,
-                api_url=API_URL,
-                event_id=f.get("id", ""),
-                magnitude=props.get("mag", 0),
-                place=props.get("place", ""),
-                longitude=coords[0],
-                latitude=coords[1],
-                depth=coords[2] if len(coords) > 2 else 0,
-                time=datetime.fromtimestamp(
-                    props.get("time", 0) / 1000, tz=timezone.utc
-                ),
-                tsunami=bool(props.get("tsunami", 0)),
-                url=props.get("url", ""),
-            ))
+            try:
+                time_ms = props.get("time", 0)
+                results.append({
+                    "id": f.get("id", ""),
+                    "magnitude": props.get("mag", 0) or 0,
+                    "lat": coords[1] if len(coords) > 1 else 0,
+                    "lon": coords[0],
+                    "depth": coords[2] if len(coords) > 2 else 0,
+                    "place": props.get("place", ""),
+                    "time": time_ms,
+                })
+            except (IndexError, TypeError, ValueError):
+                continue
         return results
 
 
 if __name__ == "__main__":
     import asyncio
+    import json
 
     async def _test() -> None:
         c = USGSCollector()
@@ -64,7 +69,7 @@ if __name__ == "__main__":
             data = await c.get_latest()
             print(f"Fetched {len(data)} earthquakes")
             for eq in data[:3]:
-                print(f"  M{eq.magnitude} @ {eq.place}")
+                print(f"  M{eq['magnitude']} @ {eq['place']}")
         finally:
             await c.close()
 

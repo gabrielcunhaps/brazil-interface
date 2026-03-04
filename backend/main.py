@@ -1,12 +1,13 @@
-"""FastAPI application — Brazil Intelligence Dashboard backend."""
-
 from __future__ import annotations
+
+"""FastAPI application — Brazil Intelligence Dashboard backend."""
 
 import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.collectors import ALL_COLLECTORS
 from backend.collectors.base import BaseCollector
 from backend.config import CORS_ORIGINS, ENABLED_COLLECTORS
-from backend.stream import sse_endpoint
+from backend.stream import SINGLETON_SOURCES, sse_endpoint
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +27,13 @@ logger = logging.getLogger(__name__)
 
 # Active collector instances
 collectors: dict[str, BaseCollector] = {}
+
+
+def _serialize_item(item: Any) -> Any:
+    """Serialize a single item — handles both Pydantic models and plain dicts."""
+    if hasattr(item, "model_dump"):
+        return item.model_dump(mode="json")
+    return item
 
 
 @asynccontextmanager
@@ -92,14 +100,22 @@ async def get_source_data(source: str):
 
     collector = collectors[source]
     data = await collector.get_latest()
+    serialized = [_serialize_item(item) for item in data]
+
+    # For singleton sources (economy, market, energy), unwrap the single-element list
+    if source in SINGLETON_SOURCES and len(serialized) == 1:
+        return {
+            "source": source,
+            "count": 1,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": serialized[0],
+        }
+
     return {
         "source": source,
-        "count": len(data),
+        "count": len(serialized),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "data": [
-            item.model_dump(mode="json") if hasattr(item, "model_dump") else item
-            for item in data
-        ],
+        "data": serialized,
     }
 
 
@@ -114,14 +130,12 @@ async def get_source_history(source: str):
 
     collector = collectors[source]
     data = await collector.get_latest()
+    serialized = [_serialize_item(item) for item in data]
     return {
         "source": source,
-        "count": len(data),
+        "count": len(serialized),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "data": [
-            item.model_dump(mode="json") if hasattr(item, "model_dump") else item
-            for item in data
-        ],
+        "data": serialized,
     }
 
 

@@ -6,15 +6,21 @@ import { useDataStore } from '../../stores/dataStore';
 
 const SOURCE_COLORS: Record<string, string> = {
   Hydro: '#3b82f6',
+  Hidraulica: '#3b82f6',
   Wind: '#06b6d4',
+  Eolica: '#06b6d4',
   Solar: '#eab308',
   Thermal: '#f97316',
+  Termica: '#f97316',
   Nuclear: '#a855f7',
+  Biomassa: '#22c55e',
+  Biomass: '#22c55e',
 };
 
 function getColor(name: string): string {
+  const lower = name.toLowerCase();
   for (const [key, color] of Object.entries(SOURCE_COLORS)) {
-    if (name.toLowerCase().includes(key.toLowerCase())) return color;
+    if (lower.includes(key.toLowerCase())) return color;
   }
   return '#6b7280';
 }

@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-"""NASA FIRMS collector — active fire hotspots via VIIRS satellite."""
+"""NASA FIRMS collector — active fire hotspots via VIIRS satellite.
+
+Returns dicts matching the frontend FireHotspot shape:
+  {lat, lon, brightness, confidence, source, acq_date}
+"""
 
 import csv
 import io
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from backend.collectors.base import BaseCollector
 from backend.config import FIRMS_MAP_KEY, REFRESH_INTERVALS
-from backend.models import FireHotspotData
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +33,26 @@ class FIRMSCollector(BaseCollector):
     refresh_interval = REFRESH_INTERVALS["firms"]
 
     async def fetch(self) -> Any:
+        if not FIRMS_MAP_KEY:
+            logger.warning("[firms] No API key configured, skipping")
+            return ""
         url = _api_url()
         session = await self._get_session()
-        async with session.get(url) as resp:
-            resp.raise_for_status()
-            return await resp.text()
+        try:
+            async with session.get(url) as resp:
+                resp.raise_for_status()
+                return await resp.text()
+        except Exception as exc:
+            logger.warning("[firms] Fetch failed: %s", exc)
+            return ""
 
-    async def normalize(self, raw: Any) -> list[FireHotspotData]:
-        now = datetime.now(timezone.utc)
-        url = _api_url()
+    async def normalize(self, raw: Any) -> list[dict]:
+        """Return list of dicts matching frontend FireHotspot type."""
+        if not raw or not isinstance(raw, str) or len(raw) < 50:
+            return []
+
         reader = csv.DictReader(io.StringIO(raw))
-        results: list[FireHotspotData] = []
+        results: list[dict] = []
         for row in reader:
             try:
                 lat = float(row.get("latitude", 0))
@@ -52,18 +63,14 @@ class FIRMSCollector(BaseCollector):
             if not (LAT_MIN <= lat <= LAT_MAX and LON_MIN <= lon <= LON_MAX):
                 continue
 
-            results.append(FireHotspotData(
-                source=self.source_name,
-                fetched_at=now,
-                api_url=url,
-                latitude=lat,
-                longitude=lon,
-                brightness=_float(row.get("bright_ti4")),
-                confidence=row.get("confidence", ""),
-                acq_date=row.get("acq_date", ""),
-                acq_time=row.get("acq_time", ""),
-                frp=_float(row.get("frp")),
-            ))
+            results.append({
+                "lat": round(lat, 4),
+                "lon": round(lon, 4),
+                "brightness": _float(row.get("bright_ti4")) or 0,
+                "confidence": row.get("confidence", ""),
+                "source": "VIIRS",
+                "acq_date": row.get("acq_date", ""),
+            })
         return results
 
 
@@ -86,7 +93,7 @@ if __name__ == "__main__":
             data = await c.get_latest()
             print(f"Fetched {len(data)} fire hotspots in Brazil")
             for h in data[:3]:
-                print(f"  {h.latitude},{h.longitude} brightness={h.brightness}")
+                print(f"  {h['lat']},{h['lon']} brightness={h['brightness']}")
         finally:
             await c.close()
 

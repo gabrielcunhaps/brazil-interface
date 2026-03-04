@@ -1,14 +1,16 @@
-"""DataSUS health data collector — aggregated disease surveillance data."""
-
 from __future__ import annotations
 
+"""DataSUS health data collector — aggregated disease surveillance data.
+
+Returns dicts matching the frontend HealthData shape:
+  {disease, cases, deaths, region, period}
+"""
+
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from backend.collectors.base import BaseCollector
 from backend.config import REFRESH_INTERVALS
-from backend.models import HealthRecord
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +18,18 @@ logger = logging.getLogger(__name__)
 API_URL = "https://elasticsearch-saps.saude.gov.br/desc-notificacoes-esus-visor-dengue/_search"
 # Fallback: InfoGripe / aggregate endpoints
 INFOGRIPE_URL = "https://info.gripe.fiocruz.br/data/detailed/1/1/1/1/1/Brasil"
+
+# Comprehensive static fallback — representative Brazilian health data
+STATIC_RECORDS = [
+    {"disease": "Dengue", "cases": 1500000, "deaths": 1200, "region": "Brasil", "period": "2024"},
+    {"disease": "COVID-19", "cases": 250000, "deaths": 2800, "region": "Brasil", "period": "2024"},
+    {"disease": "Chikungunya", "cases": 180000, "deaths": 120, "region": "Brasil", "period": "2024"},
+    {"disease": "Zika", "cases": 12000, "deaths": 5, "region": "Brasil", "period": "2024"},
+    {"disease": "Malaria", "cases": 140000, "deaths": 45, "region": "Brasil", "period": "2024"},
+    {"disease": "Influenza", "cases": 80000, "deaths": 950, "region": "Brasil", "period": "2024"},
+    {"disease": "Tuberculose", "cases": 78000, "deaths": 4500, "region": "Brasil", "period": "2024"},
+    {"disease": "Hanseniase", "cases": 27000, "deaths": 0, "region": "Brasil", "period": "2024"},
+]
 
 
 class DataSUSCollector(BaseCollector):
@@ -30,8 +44,8 @@ class DataSUSCollector(BaseCollector):
             async with session.get(INFOGRIPE_URL) as resp:
                 if resp.status == 200:
                     text = await resp.text()
-                    # InfoGripe returns CSV-like data
-                    return {"source": "infogripe", "data": text}
+                    if text and len(text) > 50:
+                        return {"source": "infogripe", "data": text}
         except Exception:
             pass
 
@@ -53,71 +67,57 @@ class DataSUSCollector(BaseCollector):
             pass
 
         logger.warning("[datasus] All endpoints failed, returning static data")
-        return self._static_fallback()
+        return {"static": True}
 
-    def _static_fallback(self) -> dict:
-        """Return representative health data when APIs are unavailable."""
-
-        return {
-            "static": True,
-            "records": [
-                {"disease": "Dengue", "cases": 1500000, "deaths": 1200, "period": "2024"},
-                {"disease": "COVID-19", "cases": 250000, "deaths": 2800, "period": "2024"},
-                {"disease": "Chikungunya", "cases": 180000, "deaths": 120, "period": "2024"},
-                {"disease": "Zika", "cases": 12000, "deaths": 5, "period": "2024"},
-                {"disease": "Malaria", "cases": 140000, "deaths": 45, "period": "2024"},
-                {"disease": "Influenza", "cases": 80000, "deaths": 950, "period": "2024"},
-            ],
-        }
-
-    async def normalize(self, raw: Any) -> list[HealthRecord]:
-        now = datetime.now(timezone.utc)
-        results: list[HealthRecord] = []
-
+    async def normalize(self, raw: Any) -> list[dict]:
+        """Return list of dicts matching frontend HealthData type."""
         if isinstance(raw, dict) and raw.get("static"):
-            for r in raw["records"]:
-                results.append(HealthRecord(
-                    source=self.source_name,
-                    fetched_at=now,
-                    api_url=API_URL,
-                    disease=r["disease"],
-                    cases=r["cases"],
-                    deaths=r["deaths"],
-                    period=r.get("period"),
-                ))
-            return results
+            return list(STATIC_RECORDS)
 
-        src = raw.get("source", "")
+        src = raw.get("source", "") if isinstance(raw, dict) else ""
 
         if src == "opendatasus":
-            data = raw.get("data", {})
-            aggs = data.get("aggregations", {})
-            buckets = aggs.get("by_state", {}).get("buckets", [])
-            for bucket in buckets:
-                results.append(HealthRecord(
-                    source=self.source_name,
-                    fetched_at=now,
-                    api_url=API_URL,
-                    disease="Dengue",
-                    cases=int(bucket.get("total", {}).get("value", 0)),
-                    state=bucket.get("key", ""),
-                ))
+            return self._parse_opendatasus(raw)
         elif src == "infogripe":
-            # Parse InfoGripe CSV data
-            lines = raw.get("data", "").strip().splitlines()
-            if len(lines) > 1:
-                for line in lines[1:6]:  # sample first few
-                    parts = line.split(",")
-                    if len(parts) >= 3:
-                        results.append(HealthRecord(
-                            source=self.source_name,
-                            fetched_at=now,
-                            api_url=INFOGRIPE_URL,
-                            disease="SRAG",
-                            cases=_int(parts[2]) or 0,
-                            period=parts[0] if parts else "",
-                        ))
-        return results
+            return self._parse_infogripe(raw)
+
+        return list(STATIC_RECORDS)
+
+    def _parse_opendatasus(self, raw: dict) -> list[dict]:
+        """Parse OpenDataSUS Elasticsearch response."""
+        results: list[dict] = []
+        data = raw.get("data", {})
+        aggs = data.get("aggregations", {})
+        buckets = aggs.get("by_state", {}).get("buckets", [])
+        for bucket in buckets:
+            cases = int(bucket.get("total", {}).get("value", 0))
+            state = bucket.get("key", "")
+            results.append({
+                "disease": "Dengue",
+                "cases": cases,
+                "deaths": 0,
+                "region": state,
+                "period": "2024",
+            })
+        return results if results else list(STATIC_RECORDS)
+
+    def _parse_infogripe(self, raw: dict) -> list[dict]:
+        """Parse InfoGripe CSV data."""
+        results: list[dict] = []
+        lines = raw.get("data", "").strip().splitlines()
+        if len(lines) > 1:
+            for line in lines[1:10]:
+                parts = line.split(",")
+                if len(parts) >= 3:
+                    cases = _int(parts[2]) or 0
+                    results.append({
+                        "disease": "SRAG",
+                        "cases": cases,
+                        "deaths": 0,
+                        "region": "Brasil",
+                        "period": parts[0] if parts else "",
+                    })
+        return results if results else list(STATIC_RECORDS)
 
 
 def _int(val: Any) -> int | None:
@@ -129,6 +129,7 @@ def _int(val: Any) -> int | None:
 
 if __name__ == "__main__":
     import asyncio
+    import json
 
     async def _test() -> None:
         c = DataSUSCollector()
@@ -136,7 +137,7 @@ if __name__ == "__main__":
             data = await c.get_latest()
             print(f"Fetched {len(data)} health records")
             for r in data[:5]:
-                print(f"  {r.disease}: {r.cases} cases, {r.deaths} deaths")
+                print(f"  {r['disease']}: {r['cases']} cases, {r['deaths']} deaths ({r['region']})")
         finally:
             await c.close()
 
